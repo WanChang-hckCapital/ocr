@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import ReactCrop, {
   Crop,
   centerCrop,
@@ -10,15 +10,31 @@ import ReactCrop, {
 import { ClipLoader } from "react-spinners";
 import { Button } from "@/components/ui/button";
 import "react-image-crop/dist/ReactCrop.css";
+import { fileToBase64 } from "@/lib/utils";
 
-const ASPECT_RATIO = 1;
+const ASPECT_RATIO = 3 / 4;
 const MIN_DIMENSION = 150;
 
-const setCanvasPreview = (
-  image: any,
-  canvas: any,
-  crop: any,
-) => {
+interface NormalizedVertex {
+  x: number;
+  y: number;
+}
+
+interface BoundingPoly {
+  normalizedVertices: NormalizedVertex[];
+}
+
+interface ObjectAnnotation {
+  name?: string;
+  score?: number;
+  boundingPoly?: BoundingPoly;
+}
+
+interface CropEdgeImageResult {
+  objectAnnotations?: ObjectAnnotation[];
+}
+
+const setCanvasPreview = (image: any, canvas: any, crop: any) => {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     throw new Error("No 2d context");
@@ -56,10 +72,24 @@ const setCanvasPreview = (
 
 interface ImageCropperProps {
   updateImage: (url: string) => void;
-  handleOCRText: (ocrData: any, originalWidth: number, uploadedImageUrl: string) => void;
+  handleOCRText: (
+    ocrData: any,
+    originalWidth: number,
+    uploadedImageUrl: string
+  ) => void;
   setImageSrc: (src: string) => void;
   closeModal: () => void;
   onImageUpload: (uploadedImageUrl: string) => void;
+  handleImageAnalyze: (
+    image: File,
+    originalWidth: number
+  ) => Promise<{
+    textAnnotations: any[];
+    logoAnnotations: any[];
+    fullTextAnnotation: any;
+  }>;
+  handleCropEdgeImg: (image: File) => Promise<CropEdgeImageResult>;
+  handleChatGpt: (image: File) => Promise<any>;
 }
 
 const ImageCropper: React.FC<ImageCropperProps> = ({
@@ -68,14 +98,18 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
   handleOCRText,
   setImageSrc,
   onImageUpload,
+  handleImageAnalyze,
+  handleCropEdgeImg,
+  handleChatGpt,
 }) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const [imgSrc, setImgSrcLocal] = useState("");
   const [originalFile, setOriginalFile] = useState<File | null>(null);
-  const [crop, setCrop] = useState<Crop>();
+  const [crop, setCrop] = useState<Crop | undefined>(undefined);
   const [error, setError] = useState("");
   const [originalImageWidth, setOriginalImageWidth] = useState<number>(0);
+  const [originalImageHeight, setOriginalImageHeight] = useState<number>(0);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loading, setLoading] = useState(false);
@@ -93,6 +127,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
     if (!file) return;
 
     setOriginalFile(file);
+    setLoading(true);
 
     const reader = new FileReader();
     reader.addEventListener("load", async () => {
@@ -100,17 +135,103 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
       const imageUrl = reader.result?.toString() || "";
       imageElement.src = imageUrl;
 
-      imageElement.addEventListener("load", (e) => {
-        if (error) setError("");
-        const { naturalWidth, naturalHeight }: any = e.currentTarget;
-        if (naturalWidth < MIN_DIMENSION || naturalHeight < MIN_DIMENSION) {
-          setError("Image must be at least 150 x 150 pixels.");
-          return setImgSrcLocal("");
+      imageElement.addEventListener("load", async (e) => {
+        try {
+          if (error) setError("");
+          const { naturalWidth, naturalHeight }: any = e.currentTarget;
+          if (naturalWidth < MIN_DIMENSION || naturalHeight < MIN_DIMENSION) {
+            setError("Image must be at least 150 x 150 pixels.");
+            setLoading(false);
+            return setImgSrcLocal("");
+          }
+          setOriginalImageWidth(naturalWidth);
+          setOriginalImageHeight(naturalHeight);
+
+          console.log("naturalWidth" + naturalWidth);
+          console.log("naturalHeight" + naturalHeight);
+
+          // Call handleCropEdgeImg to get crop hints from Vision API
+          const cropResult = await handleCropEdgeImg(file);
+
+          let newCrop;
+          if (
+            cropResult.objectAnnotations &&
+            cropResult.objectAnnotations.length > 0
+          ) {
+            const boundingPoly = cropResult.objectAnnotations[0].boundingPoly;
+            if (boundingPoly) {
+              const vertices = boundingPoly.normalizedVertices;
+              const xMin = Math.min(...vertices.map((v) => v.x)) * naturalWidth;
+              const xMax = Math.max(...vertices.map((v) => v.x)) * naturalWidth;
+              const yMin =
+                Math.min(...vertices.map((v) => v.y)) * naturalHeight;
+              const yMax =
+                Math.max(...vertices.map((v) => v.y)) * naturalHeight;
+
+              const displayedWidth = imgRef.current?.width || naturalWidth;
+              const displayedHeight = imgRef.current?.height || naturalHeight;
+              const scaleX = displayedWidth / naturalWidth;
+              const scaleY = displayedHeight / naturalHeight;
+
+              let width = (xMax - xMin) * scaleX;
+              let height = width / ASPECT_RATIO;
+
+              if (height > (yMax - yMin) * scaleY) {
+                height = (yMax - yMin) * scaleY;
+                width = height * ASPECT_RATIO;
+              }
+
+              const centeredX =
+                xMin * scaleX + ((xMax - xMin) * scaleX - width) / 2;
+              const centeredY =
+                yMin * scaleY + ((yMax - yMin) * scaleY - height) / 2;
+
+              setCrop({
+                unit: "px",
+                x: centeredX,
+                y: centeredY,
+                width: (xMax - xMin) * scaleX * ASPECT_RATIO,
+                height: (yMax - yMin) * scaleY * ASPECT_RATIO,
+              });
+
+              // console.log(
+              //   "setCrop: " +
+              //     centeredX +
+              //     "!" +
+              //     centeredY +
+              //     "!" +
+              //     (xMax - xMin) * scaleX * ASPECT_RATIO +
+              //     "!" +
+              //     (yMax - yMin) * scaleY * ASPECT_RATIO
+              // );
+            }
+          } else {
+            setCrop({
+              unit: "px",
+              x: 0,
+              y: 0,
+              width: naturalWidth * ASPECT_RATIO,
+              height: naturalHeight * ASPECT_RATIO,
+            });
+          }
+
+          setImgSrcLocal(imageUrl);
+          setImageSrc(imageUrl);
+
+          // setCrop({
+          //   unit: "px",
+          //   x: 0,
+          //   y: 0,
+          //   width: naturalWidth,
+          //   height: naturalHeight,
+          // });
+        } catch (err) {
+          console.error("Error handling image load:", err);
+          setError("Failed to process image.");
+        } finally {
+          setLoading(false);
         }
-        setOriginalImageWidth(naturalWidth);
       });
-      setImgSrcLocal(imageUrl);
-      setImageSrc(imageUrl);
     });
     reader.readAsDataURL(file);
   };
@@ -119,18 +240,34 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
     const { width, height } = e.currentTarget;
     const cropWidthInPercent = (MIN_DIMENSION / width) * 100;
 
-    const crop = makeAspectCrop(
-      {
-        unit: "%",
-        width: cropWidthInPercent,
-      },
-      ASPECT_RATIO,
-      width,
-      height
-    );
-    const centeredCrop: any = centerCrop(crop, width, height);
-    setCrop(centeredCrop);
+    // Ensure crop is defined before calling centerCrop
+    if (crop) {
+      // const crop = makeAspectCrop(
+      //   {
+      //     unit: "%",
+      //     width: cropWidthInPercent,
+      //   },
+      //   ASPECT_RATIO,
+      //   width,
+      //   height
+      // );
+      const centeredCrop: any = centerCrop(crop, width, height);
+      setCrop(centeredCrop);
+    }
   };
+
+  // const handlerChatGpt = async (croppedFile: File) => {
+  //   setLoading(true);
+  //   try {
+  //     const chatgptApiData = await handleChatGpt(croppedFile);
+  //     console.log("chatgptApiData: ", chatgptApiData);
+  //   } catch (error) {
+  //     console.error("Error calling GPT API: ", error);
+  //     setError("Failed to call GPT API.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleCropImage = async () => {
     if (imgRef.current && previewCanvasRef.current && crop) {
@@ -193,8 +330,9 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
       }
     }
   };
-
   const handleCropAndOCR = async (onImageUpload: (url: string) => void) => {
+    if (loading) return;
+
     if (imgRef.current && previewCanvasRef.current && crop) {
       setLoading(true);
       setCanvasPreview(
@@ -204,10 +342,13 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
       );
 
       previewCanvasRef.current.toBlob(async (blob) => {
-        if (blob && originalFile) {
+        if (blob) {
           const croppedFile = new File([blob], "cropped_image.png", {
             type: "image/png",
           });
+
+          const { width, height } = await getImageDimensions(croppedFile);
+          console.log(`Cropped image dimensions: ${width} x ${height}`);
 
           const formData = new FormData();
           formData.append("file", croppedFile);
@@ -226,7 +367,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
             onImageUpload(uploadImageUrlWithHttp);
 
             const ocrFormData = new FormData();
-            ocrFormData.append("file", originalFile);
+            ocrFormData.append("file", croppedFile); // Use the cropped file for OCR
 
             const ocrResponse = await fetch("/api/ocr", {
               method: "POST",
@@ -236,10 +377,24 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
             const ocrData = await ocrResponse.json();
 
             if (ocrResponse.ok) {
-              handleOCRText(ocrData.ocrData, originalImageWidth, uploadImageUrlWithHttp);
+              handleOCRText(
+                ocrData.ocrData,
+                originalImageWidth,
+                uploadImageUrlWithHttp
+              );
             } else {
               setError(`OCR failed: ${ocrData.message}`);
             }
+
+            const googleApiLabels = await handleImageAnalyze(
+              croppedFile,
+              originalImageWidth
+            );
+            console.log("Google API return:", googleApiLabels);
+
+            const chatgptRes = await handleChatGpt(croppedFile);
+
+            //console.log("chatgptRes" + chatgptRes);
 
             closeModal();
           } else {
@@ -249,6 +404,35 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
         setLoading(false);
       }, "image/png");
     }
+  };
+
+  const getImageDimensions = (
+    file: File
+  ): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const image = new Image();
+        image.onload = () => {
+          resolve({ width: image.width, height: image.height });
+        };
+        image.onerror = (error) => {
+          reject(error);
+        };
+        if (event.target && typeof event.target.result === "string") {
+          image.src = event.target.result;
+        } else {
+          reject(new Error("Failed to read file"));
+        }
+      };
+
+      reader.onerror = (error) => {
+        reject(error);
+      };
+
+      reader.readAsDataURL(file);
+    });
   };
 
   const openCamera = async () => {
@@ -278,10 +462,13 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
       ctx?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
       canvas.toBlob((blob) => {
-        if (!blob) return console.error("Failed to get blob from capture image");
-        const captureImage = new File([blob], "captureImage.jpg", { type: "image/jpeg" });
+        if (!blob)
+          return console.error("Failed to get blob from capture image");
+        const captureImage = new File([blob], "captureImage.jpg", {
+          type: "image/jpeg",
+        });
         setOriginalFile(captureImage);
-      }, 'image/jpeg');
+      }, "image/jpeg");
 
       const imageSrc = canvas.toDataURL("image/png");
       setImgSrcLocal(imageSrc);
@@ -291,11 +478,18 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
     }
   };
 
+  const onCropChange = (newCrop: Crop) => {
+    setCrop(newCrop);
+  };
+
   return (
     <>
       <div className="flex gap-4 flex-row justify-center">
-        <Button variant="default" className="cursor-pointer mb-[15px]" onClick={handleButtonClick}>
-          <span>Choose a photo</span>
+        <Button
+          variant="default"
+          className="cursor-pointer mb-[15px] p-2"
+          onClick={handleButtonClick}>
+          <span className="mr-2">Choose a photo</span>
           <input
             type="file"
             accept="image/*"
@@ -304,18 +498,38 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
             className="hidden"
           />
         </Button>
-        <Button variant="default" className="cursor-pointer mb-[15px]" onClick={openCamera}>
+        <Button
+          variant="default"
+          className="cursor-pointer mb-[15px] p-2"
+          onClick={openCamera}>
           <span>Open Camera</span>
         </Button>
       </div>
       {isCameraOpen && (
-        <div className="flex flex-col gap-4 items-center">
+        <div className="flex flex-col gap-4 items-center relative">
           <video ref={videoRef} autoPlay style={{ width: "100%" }} />
+          {crop && (
+            <div
+              style={{
+                position: "absolute",
+                border: "2px dashed red",
+                top: `${(crop.y / originalImageHeight) * 100}%`,
+                left: `${(crop.x / originalImageWidth) * 100}%`,
+                width: `${(crop.width / originalImageWidth) * 100}%`,
+                height: `${(crop.height / originalImageHeight) * 100}%`,
+              }}></div>
+          )}
           <div className="flex gap-4 flex-row justify-center">
-            <Button variant="default" className="cursor-pointer mb-[15px]" onClick={captureImage}>
+            <Button
+              variant="default"
+              className="cursor-pointer mb-[15px]"
+              onClick={captureImage}>
               <span>Capture Image</span>
             </Button>
-            <Button variant="default" className="cursor-pointer mb-[15px]" onClick={closeCamera}>
+            <Button
+              variant="default"
+              className="cursor-pointer mb-[15px]"
+              onClick={closeCamera}>
               <span>Close Camera</span>
             </Button>
           </div>
@@ -325,43 +539,53 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
       {loading ? (
         <div className="flex flex-col items-center mt-10">
           <ClipLoader size={50} color={"#123abc"} loading={loading} />
-          <p className="text-blue-400 text-xs">Just a moment, processing OCR...</p>
+          <p className="text-blue-400 text-xs">
+            Just a moment, processing image...
+          </p>
         </div>
       ) : (
         imgSrc && (
           <div className="flex flex-col items-center">
             <ReactCrop
               crop={crop}
-              onChange={(pixelCrop, percentCrop) => setCrop(percentCrop)}
+              onChange={(newCrop) => setCrop(newCrop)}
               keepSelection
-              minWidth={MIN_DIMENSION}
+              // minWidth={MIN_DIMENSION}
             >
               <img
                 ref={imgRef}
                 src={imgSrc}
                 alt="Upload"
-                style={{ maxHeight: "70vh" }}
+                style={{ maxWidth: "100%" }}
                 onLoad={onImageLoad}
               />
             </ReactCrop>
             <div className="flex flex-row gap-4">
-              <Button variant="outline" onClick={handleCropImage} className="mt-4">
+              {/* <Button
+                variant="outline"
+                onClick={handleCropImage}
+                className="mt-4">
                 Crop Image
-              </Button>
-              <Button
+              </Button> */}
+              {/* <Button
                 variant="outline"
                 onClick={handleFullImageUpload}
-                className="mt-4"
-              >
+                className="mt-4">
                 Full Image
-              </Button>
+              </Button> */}
               <Button
                 variant="outline"
                 onClick={() => handleCropAndOCR(onImageUpload)}
-                className="mt-4"
-              >
+                className="mt-4">
                 Crop & OCR
               </Button>
+              {/* chatgpt button */}
+              {/* <Button
+                variant="outline"
+                onClick={handlerChatGpt}
+                className="mt-4">
+                GPT API
+              </Button> */}
             </div>
           </div>
         )
