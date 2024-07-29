@@ -483,10 +483,8 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
 
   return (
     <>
-      <div className="flex gap-4 flex-row justify-center">
+      <div className="flex gap-4 flex-row justify-center mb-8">
         <Button
-          // variant="default"
-          // className="cursor-pointer mb-[15px] p-2"
           className="p-2 h-16"
           variant="outline"
           onClick={handleButtonClick}>
@@ -499,12 +497,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
             className="hidden"
           />
         </Button>
-        <Button
-          // variant="default"
-          variant="outline"
-          className="p-2 h-16"
-          // className="cursor-pointer mb-[15px] p-2"
-          onClick={openCamera}>
+        <Button variant="outline" className="p-2 h-16" onClick={openCamera}>
           <span>Open Camera</span>
         </Button>
       </div>
@@ -544,7 +537,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
       {loading ? (
         <div className="flex flex-col items-center mt-10">
           <ClipLoader size={50} color={"#123abc"} loading={loading} />
-          <p className="text-blue-400 text-xs">
+          <p className="text-blue-400 text-xs mt-8">
             Just a moment, processing image...
           </p>
         </div>

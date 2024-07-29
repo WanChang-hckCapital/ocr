@@ -2,32 +2,10 @@
 
 import { useState, useRef } from "react";
 import ReactCrop, { Crop, convertToPixelCrop } from "react-image-crop";
-// import {
-//   addressPattern,
-//   emailPattern,
-//   jobTitlePatterns,
-//   namePatterns,
-//   phonePattern,
-//   websitePattern,
-//   companyPattern,
-// } from "@/lib/ocr-patterns";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import UploadForm from "@/component/upload-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
@@ -43,7 +21,10 @@ import {
   generateCustomID,
 } from "@/lib/utils";
 import "react-image-crop/dist/ReactCrop.css";
-import ClipLoader from "react-spinners/ClipLoader";
+// import ClipLoader from "react-spinners/ClipLoader";
+import GptData from "@/component/gpt-data";
+import LogoList from "@/component/googlelogolist";
+import { X } from "lucide-react";
 
 interface Vertex {
   x: number;
@@ -148,9 +129,9 @@ const Home: React.FC = () => {
   const imgRef = useRef<HTMLImageElement>(null);
   const [crop, setCrop] = useState<Crop>();
 
-  // const [gptData, setGptData] = useState();
   const [gptData, setGptData] = useState<any>(null);
   const [croppedGPTLogo, setCroppedGPTLogo] = useState<string>("");
+  const [isGptDataLoading, setIsGptDataLoading] = useState(false);
 
   // Initialize gridItems with drop here default values
   const [gridItems, setGridItems] = useState<string[][]>(
@@ -191,18 +172,16 @@ const Home: React.FC = () => {
     image: File,
     originalWidth: number
   ): Promise<{
-    // textAnnotations: any[];
     logoAnnotations: any[];
-    // fullTextAnnotation: any;
   }> => {
     console.log("Image analyze:", image);
     try {
-      setIsLoading(true); // Start loading state
-      // google api
+      setIsLoading(true);
+
       const result = await analyzeImage(image);
       console.log("Detected Logos:", result.logoAnnotations);
       setDetectedLogos(result.logoAnnotations || []);
-      setIsLoading(false); // End loading state
+      setIsLoading(false);
 
       // Extract logo coordinates
       if (result.logoAnnotations) {
@@ -379,7 +358,6 @@ const Home: React.FC = () => {
     try {
       const result = await autoCropEdgeImage(image);
 
-      // Extract logo coordinates
       if (result.objectAnnotations) {
         result.objectAnnotations.forEach((annotation: ObjectAnnotation) => {
           if (
@@ -394,7 +372,7 @@ const Home: React.FC = () => {
           }
         });
       } else {
-        //setCroppedLogos([]);
+        setCroppedLogos([]);
       }
 
       return result;
@@ -407,14 +385,14 @@ const Home: React.FC = () => {
   // gpt 4.0 mini
   const handleChatGpt = async (image: File): Promise<any> => {
     try {
-      setIsLoading(true);
+      setIsGptDataLoading(true);
 
       const result = await callChatGpt(image);
       const content = result.message.content.replace(/```json|```/g, "").trim();
       const parsedContent = JSON.parse(content);
       setGptData(parsedContent);
-      setIsLoading(false);
 
+      setIsGptDataLoading(false);
       console.log(parsedContent);
 
       if (parsedContent.logo && parsedContent.logo.logo_detected) {
@@ -442,7 +420,7 @@ const Home: React.FC = () => {
       return parsedContent;
     } catch (error) {
       console.log("Error analyzing image:", error);
-      setIsLoading(false);
+      setIsGptDataLoading(false);
       throw error;
     }
   };
@@ -643,9 +621,6 @@ const Home: React.FC = () => {
           <Card className="w-full">
             <div className="flex flex-col md:flex-row w-full">
               <div className="w-full md:w-1/2 flex flex-col items-center justify-center text-slate-100 shadow-xl p-4 md:sticky md:top-0">
-                {/* <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-between items-center mb-8 md:mb-0">
-                  <h2 className="text-xl mb-4"></h2>
-                </div> */}
                 <CardHeader>
                   <CardTitle>Uploaded Image :</CardTitle>
                 </CardHeader>
@@ -658,278 +633,108 @@ const Home: React.FC = () => {
                 </CardContent>
               </div>
               <div className="w-full md:w-1/2 overflow-y-auto max-h-screen scrollbar-hide">
-                {isLoading && (
-                  <div className="flex justify-center items-center min-h-[50vh]">
-                    <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-center items-center">
-                      <ClipLoader
-                        size={50}
-                        color={"#123abc"}
-                        loading={isLoading}
-                      />
-                      <h2 className="text-xl">Analyzing Data...</h2>
-                      {/* <Skeleton className="h-[125px] w-[250px] rounded-xl" /> */}
-                    </div>
+                {(isLoading || isGptDataLoading) && (
+                  <div className="flex flex-col items-center justify-center mt-8 space-y-4 min-h-[50vh]">
+                    <Skeleton className="h-6 w-1/3 bg-white" />
+                    <Skeleton className="h-6 w-1/2 bg-white" />
+                    <Skeleton className="h-6 w-1/4 bg-white" />
                   </div>
                 )}
-                {!isLoading && (
-                  // <div className="bg-gray-800 text-slate-100 shadow-xl p-4">
-                  <div className="text-white p-4">
-                    {/* <div className="mt-8">
-                    <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-between items-center">
-                      <h2 className="text-xl">Detected Text & Logo</h2>
-                    </div>
-                  </div> */}
-                    {/* <Card> */}
-                    {/* <CardHeader>
-                        <CardTitle>Detect Text and Logo</CardTitle>
-                        <CardDescription>
-                          Please verify the below data.
-                        </CardDescription>
-                      </CardHeader> */}
-                    <CardContent>Please Verify the blow data.</CardContent>
+                {!isLoading && !isGptDataLoading && (
+                  <div className="text-white p-4 mt-2">
+                    <CardContent>Please verify the below data.</CardContent>
                     <CardContent>
-                      <Card>
-                        {croppedLogos.length > 0 && (
-                          <div className="mt-8">
-                            {/* <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4"> */}
-                            <div className="text-slate-100 p-4">
-                              {/* <h3 className="text-lg">Detected Logos:</h3> */}
-                              <CardHeader>
-                                <CardTitle>Detected Logos:</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                {croppedLogos.map((croppedImage, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex flex-col items-center mb-4 relative">
-                                    <img
-                                      src={croppedImage}
-                                      alt={`Cropped logo ${index}`}
-                                      className="w-auto h-auto mt-2"
-                                      style={{
-                                        transform: `rotate(${logoRotations[index]}deg)`,
-                                      }}
-                                    />
-                                    {/* <button
-                                    className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700"
-                                    onClick={() => removeLogo(index)}>
-                                    ×
-                                  </button> */}
-                                    <Button
-                                      onClick={() => removeLogo(index)}
-                                      className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700">
-                                      &times;
-                                    </Button>
-                                    {/* <button
-                                    className="mt-2 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
-                                    onClick={() => rotateLogo(index)}>
-                                    Rotate
-                                  </button> */}
-                                  </div>
-                                ))}
-                              </CardContent>
-                            </div>
-                          </div>
-                        )}
-                      </Card>
-                    </CardContent>
-                    <CardContent>
-                      {manualCroppedLogos.length > 0 && (
-                        <div className="mt-8">
-                          <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4">
-                            <h3 className="text-lg">Manually Cropped Logos:</h3>
-                            {manualCroppedLogos.map((croppedImage, index) => (
-                              <div
-                                key={index}
-                                className="flex flex-col items-center mb-4 relative">
-                                <img
-                                  src={croppedImage}
-                                  alt={`Manually cropped logo ${index}`}
-                                  className="w-auto h-auto mt-2"
-                                  style={{
-                                    transform: `rotate(${manualLogoRotations[index]}deg)`,
-                                  }}
-                                />
-                                <button
-                                  className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700"
-                                  onClick={() => removeLogo(index, true)}>
-                                  ×
-                                </button>
-                                <button
-                                  className="mt-2 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
-                                  onClick={() => rotateLogo(index, true)}>
-                                  Rotate
-                                </button>
-                              </div>
-                            ))}
+                      {croppedLogos.length > 0 && (
+                        <div className="mt-2">
+                          <div className="bg-white text-slate-900 p-4 rounded-2xl">
+                            <CardHeader>
+                              <CardTitle>Detected Logos:</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <LogoList
+                                croppedLogos={croppedLogos}
+                                logoRotations={logoRotations}
+                                removeLogo={removeLogo}
+                                rotateLogo={rotateLogo}
+                              />
+                            </CardContent>
                           </div>
                         </div>
                       )}
                     </CardContent>
-                    <div className="mt-8 p-6 w-full max-w-xl flex justify-center items-center">
+                    <CardContent>
+                      {manualCroppedLogos.length > 0 && (
+                        <div className="mt-8">
+                          <div className="bg-white text-slate-900 rounded-2xl shadow-xl p-4">
+                            <CardHeader>
+                              <CardTitle>Manually Cropped Logos:</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                              {manualCroppedLogos.map((croppedImage, index) => (
+                                <div
+                                  key={index}
+                                  className="flex flex-col items-center mb-4 relative">
+                                  <img
+                                    src={croppedImage}
+                                    alt={`Manually cropped logo ${index}`}
+                                    className="w-auto h-auto mt-2"
+                                    style={{
+                                      transform: `rotate(${manualLogoRotations[index]}deg)`,
+                                    }}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    onClick={() => removeLogo(index, true)}
+                                    className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700">
+                                    {/* &times; */}
+                                    <X />
+                                  </Button>
+                                  <CardFooter>
+                                    <Button
+                                      variant="default"
+                                      onClick={() => rotateLogo(index, true)}
+                                      className="mt-2 px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105">
+                                      Rotate
+                                    </Button>
+                                  </CardFooter>
+                                </div>
+                              ))}
+                            </CardContent>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                    <div className="p-6 pt-0">
                       <Button
                         variant="outline"
                         onClick={startCrop}
-                        className="w-6/12"
-                        //className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
-                      >
+                        className="w-full">
                         Crop New Logo
                       </Button>
                     </div>
-                    {/* {regexMatches.length > 0 && (
-                      <div className="mt-8">
-                        <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4">
-                          <h2 className="text-xl">Detected Information:</h2>
-                          <h2 className="text-xl">
-                            (Please edit the data if not correct)
-                          </h2>
-                          {regexMatches.map((match, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center mt-2 mb-2">
-                              <div className="flex-grow ml-2">
-                                <label className="block text-white">
-                                  {match.label}:
-                                  <input
-                                    defaultValue={match.originalText}
-                                    className="mt-1 block w-full bg-gray-700 text-white border border-gray-600 rounded-md shadow-sm focus:ring focus:ring-opacity-50 p-2"
-                                  />
-                                </label>
-                              </div>
-                              <button
-                                onClick={() => removeMatch(index)}
-                                className="ml-2 text-red-500 hover:text-red-700">
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )} */}
                     <CardContent>
-                      <div className="p-4">
-                        {gptData &&
-                          Object.entries(gptData).map(([key, value]) => (
-                            <div
-                              key={key}
-                              className="flex w-full items-start mt-3 mb-2">
-                              <div className="flex-grow">
-                                <Label className="block text-white mb-3">
-                                  {key.replace(/_/g, " ")}:
-                                </Label>
-                                <Input
-                                  defaultValue={
-                                    typeof value === "object"
-                                      ? JSON.stringify(value)
-                                      : String(value)
-                                  }
-                                  className="mt-1 block w-full bg-gray-700 text-white border border-gray-600 rounded-md shadow-sm focus:ring focus:ring-opacity-50 mb-2 p-2"
-                                />
-                              </div>
-                              <div className="ml-2">
-                                <AlertDialog>
-                                  <AlertDialogTrigger>
-                                    <Button
-                                      variant="none_bg"
-                                      className="w-6 h-6 flex items-center justify-center p-0 text-red-500">
-                                      &times;
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>
-                                        Are you absolutely sure?
-                                      </AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        This action cannot be undone.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>
-                                        Cancel
-                                      </AlertDialogCancel>
-                                      <AlertDialogAction>
-                                        Continue
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
+                      {gptData && (
+                        <GptData
+                          gptData={gptData}
+                          isGptDataLoading={isGptDataLoading}
+                        />
+                      )}
                     </CardContent>
                     <CardFooter>
-                      <div className="mt-8 w-full max-w-xl flex justify-center">
-                        {/* <button
-                          onClick={handleSave}
-                          className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105">
-                          Save
-                        </button> */}
-                        <Button variant="outline" onClick={handleSave}>
+                      <div className="mt-8 w-full flex justify-center">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={handleSave}>
                           Save
                         </Button>
                       </div>
                     </CardFooter>
-                    {/* </Card> */}
                   </div>
                 )}
               </div>
             </div>
           </Card>
-        )}
-        {gptData && (
-          <div className="flex justify-center items-center min-h-[50vh] w-full">
-            {/* <div className="bg-gray-800 text-slate-100 shadow-xl p-4 mt-8 rounded-2xl">
-              <h2 className="text-xl mb-4">GPT-4 Output:</h2>
-              <pre className="bg-gray-900 p-4 rounded">
-                {JSON.stringify(gptData, null, 2)}
-              </pre>
-            </div> */}
-            {/* <div className="mt-8 w-full"> */}
-            {/* <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4"> */}
-            {/* <h2 className="text-xl">Detected Information:</h2>
-                <h2 className="text-xl">
-                  (Please edit the data if not correct)
-                </h2> */}
-            {/* {Object.entries(gptData).map(([key, value]) => (
-                  <div key={key} className="flex items-center mt-2 mb-2">
-                    <div className="flex-grow ml-2">
-                      <label className="block text-white">
-                        {key.replace(/_/g, " ")}:
-                        <input
-                          defaultValue={
-                            typeof value === "object"
-                              ? JSON.stringify(value)
-                              : String(value)
-                          }
-                          className="mt-1 block w-full bg-gray-700 text-white border border-gray-600 rounded-md shadow-sm focus:ring focus:ring-opacity-50 p-2"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ))} */}
-            {/* {croppedGPTLogo && (
-                  <div className="mt-8 flex flex-col items-center">
-                    <h3 className="text-lg">Cropped Logo from GPT:</h3>
-                    <img
-                      src={croppedGPTLogo}
-                      alt="Cropped logo from GPT"
-                      className="w-auto h-auto mt-2"
-                    />
-                  </div>
-                )} */}
-            {/* <div className="mt-8 w-full max-w-xl flex justify-center"> */}
-            {/* <button
-                    // onClick={handleSave}
-                    className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105">
-                    Save
-                  </button> */}
-            {/* <Button variant="outline">Save</Button> */}
-            {/* </div> */}
-            {/* </div> */}
-            {/* </div> */}
-          </div>
         )}
       </main>
       {modalIsOpen && (
