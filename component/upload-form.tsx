@@ -8,7 +8,6 @@ import {
   websitePattern,
 } from "@/lib/ocr-patterns";
 import ImageCropper from "@/component/image-cropper";
-import { Button } from "@/components/ui/button";
 
 interface NormalizedVertex {
   x: number;
@@ -40,9 +39,9 @@ interface UploadFormProps {
     image: File,
     originalWidth: number
   ) => Promise<{
-    textAnnotations: any[];
+    // textAnnotations: any[];
     logoAnnotations: any[];
-    fullTextAnnotation: any;
+    //fullTextAnnotation: any;
   }>;
   handleCropEdgeImg: (image: File) => Promise<CropEdgeImageResult>;
   handleChatGpt: (handleChatGpt: File) => Promise<any>;
@@ -179,15 +178,15 @@ const UploadForm: React.FC<UploadFormProps> = ({
     image: File,
     originalWidth: number
   ): Promise<{
-    textAnnotations: any[];
+    // textAnnotations: any[];
     logoAnnotations: any[];
-    fullTextAnnotation: any;
+    //fullTextAnnotation: any;
   }> => {
     try {
       const data = await handleImageAnalyze(image, originalWidth);
-      console.log("Detected Text:", data.textAnnotations);
+      // console.log("Detected Text:", data.textAnnotations);
       console.log("Detected Logos:", data.logoAnnotations);
-      console.log("Full Text Annotation:", data.fullTextAnnotation);
+      //console.log("Full Text Annotation:", data.fullTextAnnotation);
 
       console.log("original width:" + originalWidth);
       return data;
@@ -225,7 +224,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
   };
 
   return (
-    <div className="w-full max-w-xl">
+    <div className="w-full">
       {/* <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4"> */}
       {/* <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl">Upload and Crop Image</h2>

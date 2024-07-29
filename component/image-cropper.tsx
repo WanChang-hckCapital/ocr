@@ -10,7 +10,6 @@ import ReactCrop, {
 import { ClipLoader } from "react-spinners";
 import { Button } from "@/components/ui/button";
 import "react-image-crop/dist/ReactCrop.css";
-import { fileToBase64 } from "@/lib/utils";
 
 const ASPECT_RATIO = 3 / 4;
 const MIN_DIMENSION = 150;
@@ -84,9 +83,9 @@ interface ImageCropperProps {
     image: File,
     originalWidth: number
   ) => Promise<{
-    textAnnotations: any[];
+    // textAnnotations: any[];
     logoAnnotations: any[];
-    fullTextAnnotation: any;
+    //fullTextAnnotation: any;
   }>;
   handleCropEdgeImg: (image: File) => Promise<CropEdgeImageResult>;
   handleChatGpt: (image: File) => Promise<any>;
@@ -486,8 +485,10 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
     <>
       <div className="flex gap-4 flex-row justify-center">
         <Button
-          variant="default"
-          className="cursor-pointer mb-[15px] p-2"
+          // variant="default"
+          // className="cursor-pointer mb-[15px] p-2"
+          className="p-2 h-16"
+          variant="outline"
           onClick={handleButtonClick}>
           <span className="mr-2">Choose a photo</span>
           <input
@@ -499,8 +500,10 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
           />
         </Button>
         <Button
-          variant="default"
-          className="cursor-pointer mb-[15px] p-2"
+          // variant="default"
+          variant="outline"
+          className="p-2 h-16"
+          // className="cursor-pointer mb-[15px] p-2"
           onClick={openCamera}>
           <span>Open Camera</span>
         </Button>
@@ -521,13 +524,15 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
           )}
           <div className="flex gap-4 flex-row justify-center">
             <Button
-              variant="default"
+              // variant="default"
+              variant="outline"
               className="cursor-pointer mb-[15px]"
               onClick={captureImage}>
               <span>Capture Image</span>
             </Button>
             <Button
-              variant="default"
+              // variant="default"
+              variant="outline"
               className="cursor-pointer mb-[15px]"
               onClick={closeCamera}>
               <span>Close Camera</span>
@@ -549,9 +554,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
             <ReactCrop
               crop={crop}
               onChange={(newCrop) => setCrop(newCrop)}
-              keepSelection
-              // minWidth={MIN_DIMENSION}
-            >
+              keepSelection>
               <img
                 ref={imgRef}
                 src={imgSrc}

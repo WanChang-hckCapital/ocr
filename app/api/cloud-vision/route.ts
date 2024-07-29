@@ -52,14 +52,7 @@ export async function POST(req: NextRequest) {
     const requestPayload = {
       requests: [
         {
-          features: [
-            // {
-            //   maxResults: 50,
-            //   model: "builtin/latest",
-            //   type: "DOCUMENT_TEXT_DETECTION",
-            // },
-            { maxResults: 50, type: "LOGO_DETECTION" },
-          ],
+          features: [{ maxResults: 50, type: "LOGO_DETECTION" }],
           image: {
             content: base64Image,
           },
@@ -88,9 +81,7 @@ export async function POST(req: NextRequest) {
     const visionResponse = response.data.responses[0];
 
     const result = {
-      // textAnnotations: visionResponse.textAnnotations,
       logoAnnotations: visionResponse.logoAnnotations,
-      // fullTextAnnotation: visionResponse.fullTextAnnotation,
     };
 
     return NextResponse.json(result, { status: 200 });

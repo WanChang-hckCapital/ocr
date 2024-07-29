@@ -2,26 +2,47 @@
 
 import { useState, useRef } from "react";
 import ReactCrop, { Crop, convertToPixelCrop } from "react-image-crop";
-import {
-  addressPattern,
-  emailPattern,
-  jobTitlePatterns,
-  namePatterns,
-  phonePattern,
-  websitePattern,
-  companyPattern,
-} from "@/lib/ocr-patterns";
+// import {
+//   addressPattern,
+//   emailPattern,
+//   jobTitlePatterns,
+//   namePatterns,
+//   phonePattern,
+//   websitePattern,
+//   companyPattern,
+// } from "@/lib/ocr-patterns";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import UploadForm from "@/component/upload-form";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { analyzeImage, autoCropEdgeImage, callChatGpt } from "@/lib/utils";
 import {
   convertExtractedInfoToEditorElements,
   generateCustomID,
 } from "@/lib/utils";
 import "react-image-crop/dist/ReactCrop.css";
-import { v4 as uuidv4 } from "uuid";
 import ClipLoader from "react-spinners/ClipLoader";
 
 interface Vertex {
@@ -170,21 +191,17 @@ const Home: React.FC = () => {
     image: File,
     originalWidth: number
   ): Promise<{
-    textAnnotations: any[];
+    // textAnnotations: any[];
     logoAnnotations: any[];
-    fullTextAnnotation: any;
+    // fullTextAnnotation: any;
   }> => {
     console.log("Image analyze:", image);
     try {
       setIsLoading(true); // Start loading state
       // google api
       const result = await analyzeImage(image);
-      console.log("Detected Text:", result.textAnnotations);
       console.log("Detected Logos:", result.logoAnnotations);
-      console.log("Full text:", result.fullTextAnnotation);
-      setDetectedText(result.textAnnotations || []);
       setDetectedLogos(result.logoAnnotations || []);
-      setDetectedFullText(result.fullTextAnnotation.text || "");
       setIsLoading(false); // End loading state
 
       // Extract logo coordinates
@@ -198,71 +215,71 @@ const Home: React.FC = () => {
       }
 
       const matches: Match[] = [];
-      const text = result.fullTextAnnotation.text || "";
+      // const text = result.fullTextAnnotation.text || "";
 
-      const textAnnotations = result.fullTextAnnotation.pages[0].blocks;
+      // const textAnnotations = result.fullTextAnnotation.pages[0].blocks;
 
-      textAnnotations.forEach((block: any) => {
-        const blockText = block.paragraphs
-          .map((para: any) =>
-            para.words
-              .map((word: any) =>
-                word.symbols.map((sym: any) => sym.text).join("")
-              )
-              .join(" ")
-          )
-          .join("\n");
+      // textAnnotations.forEach((block: any) => {
+      //   const blockText = block.paragraphs
+      //     .map((para: any) =>
+      //       para.words
+      //         .map((word: any) =>
+      //           word.symbols.map((sym: any) => sym.text).join("")
+      //         )
+      //         .join(" ")
+      //     )
+      //     .join("\n");
 
-        const blockType = block.blockType;
-        const vertices = block.boundingBox.vertices;
+      //   const blockType = block.blockType;
+      //   const vertices = block.boundingBox.vertices;
 
-        const patterns = [
-          { pattern: emailPattern, label: "Email" },
-          { pattern: phonePattern, label: "Phone" },
-          { pattern: addressPattern, label: "Address" },
-          { pattern: websitePattern, label: "Website" },
-          ...namePatterns.map((pattern) => ({ pattern, label: "Name" })),
-          { pattern: companyPattern, label: "Company" },
-          ...jobTitlePatterns.map((pattern) => ({
-            pattern,
-            label: "Job Title",
-          })),
-        ];
+      // const patterns = [
+      //   { pattern: emailPattern, label: "Email" },
+      //   { pattern: phonePattern, label: "Phone" },
+      //   { pattern: addressPattern, label: "Address" },
+      //   { pattern: websitePattern, label: "Website" },
+      //   ...namePatterns.map((pattern) => ({ pattern, label: "Name" })),
+      //   { pattern: companyPattern, label: "Company" },
+      //   ...jobTitlePatterns.map((pattern) => ({
+      //     pattern,
+      //     label: "Job Title",
+      //   })),
+      // ];
 
-        patterns.forEach(({ pattern, label }) => {
-          const matchesForPattern = blockText.matchAll(pattern);
-          for (const match of matchesForPattern) {
-            matches.push({
-              label,
-              value: match[0],
-              blockType,
-              vertices,
-              originalText: blockText,
-            });
-          }
-        });
-      });
+      //   patterns.forEach(({ pattern, label }) => {
+      //     const matchesForPattern = blockText.matchAll(pattern);
+      //     for (const match of matchesForPattern) {
+      //       matches.push({
+      //         label,
+      //         value: match[0],
+      //         blockType,
+      //         vertices,
+      //         originalText: blockText,
+      //       });
+      //     }
+      //   });
+      // });
 
       console.log("matches", matches);
       setRegexMatches(matches);
 
-      const extractedInfo: any = {};
-      matches.forEach((match, index) => {
-        const vertices = match.vertices.map((vertex, i) => ({
-          [`x${i}`]: vertex.x,
-          [`y${i}`]: vertex.y,
-        }));
+      // const extractedInfo: any = {};
+      // matches.forEach((match, index) => {
+      //   const vertices = match.vertices.map((vertex, i) => ({
+      //     [`x${i}`]: vertex.x,
+      //     [`y${i}`]: vertex.y,
+      //   }));
 
-        extractedInfo[`field${index}`] = {
-          text: match.value,
-          position: vertices.reduce(
-            (acc, vertex) => ({ ...acc, ...vertex }),
-            {}
-          ),
-        };
-      });
+      //   extractedInfo[`field${index}`] = {
+      //     text: match.value,
+      //     position: vertices.reduce(
+      //       (acc, vertex) => ({ ...acc, ...vertex }),
+      //       {}
+      //     ),
+      //   };
+      // });
 
-      handleExtractedInfo(extractedInfo, originalWidth, uploadedImageUrl);
+      //handleExtractedInfo(extractedInfo, originalWidth, uploadedImageUrl);
 
       const calculateTextAlign = (
         x0: number,
@@ -331,14 +348,14 @@ const Home: React.FC = () => {
 
       console.log("Extracted Info above:", extractedInfo);
 
-      Object.keys(extractedInfo).forEach((key) => {
-        const field = extractedInfo[key];
-        if (field.position) {
-          elements.push(createBoxElement(field));
-        } else {
-          console.log("Field without position:", field);
-        }
-      });
+      // Object.keys(extractedInfo).forEach((key) => {
+      //   const field = extractedInfo[key];
+      //   if (field.position) {
+      //     elements.push(createBoxElement(field));
+      //   } else {
+      //     console.log("Field without position:", field);
+      //   }
+      // });
 
       // final json that need to be saved in the db
       // Object.keys(elements).forEach((key: any) => {
@@ -388,41 +405,18 @@ const Home: React.FC = () => {
   };
 
   // gpt 4.0 mini
-  // const handleChatGpt = async (image: File): Promise<any> => {
-  //   try {
-  //     const result = await callChatGpt(image);
-
-  //     // remove ```
-  //     const content = result.message.content.replace(/```json|```/g, "").trim();
-
-  //     const parsedContent = JSON.parse(content);
-
-  //     setGptData(parsedContent);
-
-  //     return parsedContent;
-  //   } catch (error) {
-  //     console.log("Error analyzing image:", error);
-  //     throw error;
-  //   }
-  // };
   const handleChatGpt = async (image: File): Promise<any> => {
     try {
+      setIsLoading(true);
+
       const result = await callChatGpt(image);
       const content = result.message.content.replace(/```json|```/g, "").trim();
       const parsedContent = JSON.parse(content);
       setGptData(parsedContent);
+      setIsLoading(false);
 
       console.log(parsedContent);
 
-      // Check if the parsedContent contains the logo coordinates and crop the image
-      // if (parsedContent.logo && parsedContent.logo.logo_detected) {
-      //   const { x, y, width, height } = parsedContent.logo.logo;
-      //   console.log(parsedContent);
-
-      //   await cropLogoFromCoordinates(x, y, width, height, image);
-      // }
-
-      // sometimes it return parsedContent.logo.logo, sometimes parsedContent.logo.coordinates
       if (parsedContent.logo && parsedContent.logo.logo_detected) {
         if (parsedContent.logo.logo) {
           const { x, y, width, height } = parsedContent.logo.logo;
@@ -448,6 +442,7 @@ const Home: React.FC = () => {
       return parsedContent;
     } catch (error) {
       console.log("Error analyzing image:", error);
+      setIsLoading(false);
       throw error;
     }
   };
@@ -629,7 +624,7 @@ const Home: React.FC = () => {
     <DndProvider backend={HTML5Backend}>
       <main className="flex flex-col items-center p-24 min-h-screen">
         <div className="flex w-full justify-center mb-8">
-          <Button className="mb-8" onClick={handleFormToggle}>
+          <Button variant="outline" onClick={handleFormToggle}>
             Upload Image
           </Button>
         </div>
@@ -645,110 +640,143 @@ const Home: React.FC = () => {
           </div>
         )}
         {dataReturned && (
-          <div className="flex flex-col md:flex-row w-full">
-            <div className="w-full md:w-1/2 flex flex-col items-center justify-center bg-gray-800 text-slate-100 shadow-xl p-4 md:sticky md:top-0">
-              <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-between items-center mb-8 md:mb-0">
-                <h2 className="text-xl mb-4">Uploaded Image :</h2>
+          <Card className="w-full">
+            <div className="flex flex-col md:flex-row w-full">
+              <div className="w-full md:w-1/2 flex flex-col items-center justify-center text-slate-100 shadow-xl p-4 md:sticky md:top-0">
+                {/* <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-between items-center mb-8 md:mb-0">
+                  <h2 className="text-xl mb-4"></h2>
+                </div> */}
+                <CardHeader>
+                  <CardTitle>Uploaded Image :</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <img
+                    src={uploadedImageUrl}
+                    alt="Uploaded"
+                    className="max-w-full h-auto"
+                  />
+                </CardContent>
               </div>
-              <img
-                src={uploadedImageUrl}
-                alt="Uploaded"
-                className="max-w-full h-auto"
-              />
-            </div>
-            <div className="w-full md:w-1/2 overflow-y-auto max-h-screen scrollbar-hide">
-              {isLoading && (
-                <div className="flex justify-center items-center min-h-[50vh]">
-                  <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-center items-center">
-                    <ClipLoader
-                      size={50}
-                      color={"#123abc"}
-                      loading={isLoading}
-                    />
-                    <h2 className="text-xl">Analyzing Data...</h2>
-                  </div>
-                </div>
-              )}
-              {(detectedLogos.length > 0 ||
-                detectedFullText ||
-                manualCroppedLogos.length > 0) &&
-                !isLoading && (
-                  <div className="bg-gray-800 text-slate-100 shadow-xl p-4">
-                    <div className="mt-8">
-                      <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-between items-center">
-                        <h2 className="text-xl">Detected Text & Logo</h2>
-                      </div>
+              <div className="w-full md:w-1/2 overflow-y-auto max-h-screen scrollbar-hide">
+                {isLoading && (
+                  <div className="flex justify-center items-center min-h-[50vh]">
+                    <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-center items-center">
+                      <ClipLoader
+                        size={50}
+                        color={"#123abc"}
+                        loading={isLoading}
+                      />
+                      <h2 className="text-xl">Analyzing Data...</h2>
+                      {/* <Skeleton className="h-[125px] w-[250px] rounded-xl" /> */}
                     </div>
-                    {croppedLogos.length > 0 && (
-                      <div className="mt-8">
-                        <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4">
-                          <h3 className="text-lg">Detected Logos:</h3>
-                          {croppedLogos.map((croppedImage, index) => (
-                            <div
-                              key={index}
-                              className="flex flex-col items-center mb-4 relative">
-                              <img
-                                src={croppedImage}
-                                alt={`Cropped logo ${index}`}
-                                className="w-auto h-auto mt-2"
-                                style={{
-                                  transform: `rotate(${logoRotations[index]}deg)`,
-                                }}
-                              />
-                              <button
-                                className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700"
-                                onClick={() => removeLogo(index)}>
-                                ×
-                              </button>
-                              <button
-                                className="mt-2 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
-                                onClick={() => rotateLogo(index)}>
-                                Rotate
-                              </button>
+                  </div>
+                )}
+                {!isLoading && (
+                  // <div className="bg-gray-800 text-slate-100 shadow-xl p-4">
+                  <div className="text-white p-4">
+                    {/* <div className="mt-8">
+                    <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4 flex justify-between items-center">
+                      <h2 className="text-xl">Detected Text & Logo</h2>
+                    </div>
+                  </div> */}
+                    {/* <Card> */}
+                    {/* <CardHeader>
+                        <CardTitle>Detect Text and Logo</CardTitle>
+                        <CardDescription>
+                          Please verify the below data.
+                        </CardDescription>
+                      </CardHeader> */}
+                    <CardContent>Please Verify the blow data.</CardContent>
+                    <CardContent>
+                      <Card>
+                        {croppedLogos.length > 0 && (
+                          <div className="mt-8">
+                            {/* <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4"> */}
+                            <div className="text-slate-100 p-4">
+                              {/* <h3 className="text-lg">Detected Logos:</h3> */}
+                              <CardHeader>
+                                <CardTitle>Detected Logos:</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                {croppedLogos.map((croppedImage, index) => (
+                                  <div
+                                    key={index}
+                                    className="flex flex-col items-center mb-4 relative">
+                                    <img
+                                      src={croppedImage}
+                                      alt={`Cropped logo ${index}`}
+                                      className="w-auto h-auto mt-2"
+                                      style={{
+                                        transform: `rotate(${logoRotations[index]}deg)`,
+                                      }}
+                                    />
+                                    {/* <button
+                                    className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700"
+                                    onClick={() => removeLogo(index)}>
+                                    ×
+                                  </button> */}
+                                    <Button
+                                      onClick={() => removeLogo(index)}
+                                      className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700">
+                                      &times;
+                                    </Button>
+                                    {/* <button
+                                    className="mt-2 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
+                                    onClick={() => rotateLogo(index)}>
+                                    Rotate
+                                  </button> */}
+                                  </div>
+                                ))}
+                              </CardContent>
                             </div>
-                          ))}
+                          </div>
+                        )}
+                      </Card>
+                    </CardContent>
+                    <CardContent>
+                      {manualCroppedLogos.length > 0 && (
+                        <div className="mt-8">
+                          <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4">
+                            <h3 className="text-lg">Manually Cropped Logos:</h3>
+                            {manualCroppedLogos.map((croppedImage, index) => (
+                              <div
+                                key={index}
+                                className="flex flex-col items-center mb-4 relative">
+                                <img
+                                  src={croppedImage}
+                                  alt={`Manually cropped logo ${index}`}
+                                  className="w-auto h-auto mt-2"
+                                  style={{
+                                    transform: `rotate(${manualLogoRotations[index]}deg)`,
+                                  }}
+                                />
+                                <button
+                                  className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700"
+                                  onClick={() => removeLogo(index, true)}>
+                                  ×
+                                </button>
+                                <button
+                                  className="mt-2 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
+                                  onClick={() => rotateLogo(index, true)}>
+                                  Rotate
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {manualCroppedLogos.length > 0 && (
-                      <div className="mt-8">
-                        <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4">
-                          <h3 className="text-lg">Manually Cropped Logos:</h3>
-                          {manualCroppedLogos.map((croppedImage, index) => (
-                            <div
-                              key={index}
-                              className="flex flex-col items-center mb-4 relative">
-                              <img
-                                src={croppedImage}
-                                alt={`Manually cropped logo ${index}`}
-                                className="w-auto h-auto mt-2"
-                                style={{
-                                  transform: `rotate(${manualLogoRotations[index]}deg)`,
-                                }}
-                              />
-                              <button
-                                className="absolute top-0 right-0 mt-2 mr-2 text-red-500 hover:text-red-700"
-                                onClick={() => removeLogo(index, true)}>
-                                ×
-                              </button>
-                              <button
-                                className="mt-2 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
-                                onClick={() => rotateLogo(index, true)}>
-                                Rotate
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div className="mt-8 w-full max-w-xl flex justify-center">
+                      )}
+                    </CardContent>
+                    <div className="mt-8 p-6 w-full max-w-xl flex justify-center items-center">
                       <Button
+                        variant="outline"
                         onClick={startCrop}
-                        className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105">
+                        className="w-6/12"
+                        //className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
+                      >
                         Crop New Logo
                       </Button>
                     </div>
-                    {regexMatches.length > 0 && (
+                    {/* {regexMatches.length > 0 && (
                       <div className="mt-8">
                         <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4">
                           <h2 className="text-xl">Detected Information:</h2>
@@ -777,35 +805,94 @@ const Home: React.FC = () => {
                           ))}
                         </div>
                       </div>
-                    )}
-
-                    <div className="mt-8 w-full max-w-xl flex justify-center">
-                      <button
-                        onClick={handleSave}
-                        className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105">
-                        Save
-                      </button>
-                    </div>
+                    )} */}
+                    <CardContent>
+                      <div className="p-4">
+                        {gptData &&
+                          Object.entries(gptData).map(([key, value]) => (
+                            <div
+                              key={key}
+                              className="flex w-full items-start mt-3 mb-2">
+                              <div className="flex-grow">
+                                <Label className="block text-white mb-3">
+                                  {key.replace(/_/g, " ")}:
+                                </Label>
+                                <Input
+                                  defaultValue={
+                                    typeof value === "object"
+                                      ? JSON.stringify(value)
+                                      : String(value)
+                                  }
+                                  className="mt-1 block w-full bg-gray-700 text-white border border-gray-600 rounded-md shadow-sm focus:ring focus:ring-opacity-50 mb-2 p-2"
+                                />
+                              </div>
+                              <div className="ml-2">
+                                <AlertDialog>
+                                  <AlertDialogTrigger>
+                                    <Button
+                                      variant="none_bg"
+                                      className="w-6 h-6 flex items-center justify-center p-0 text-red-500">
+                                      &times;
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction>
+                                        Continue
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <div className="mt-8 w-full max-w-xl flex justify-center">
+                        {/* <button
+                          onClick={handleSave}
+                          className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105">
+                          Save
+                        </button> */}
+                        <Button variant="outline" onClick={handleSave}>
+                          Save
+                        </Button>
+                      </div>
+                    </CardFooter>
+                    {/* </Card> */}
                   </div>
                 )}
+              </div>
             </div>
-          </div>
+          </Card>
         )}
         {gptData && (
-          <div className="flex justify-center items-center min-h-[50vh]">
-            <div className="bg-gray-800 text-slate-100 shadow-xl p-4 mt-8 rounded-2xl">
+          <div className="flex justify-center items-center min-h-[50vh] w-full">
+            {/* <div className="bg-gray-800 text-slate-100 shadow-xl p-4 mt-8 rounded-2xl">
               <h2 className="text-xl mb-4">GPT-4 Output:</h2>
               <pre className="bg-gray-900 p-4 rounded">
                 {JSON.stringify(gptData, null, 2)}
               </pre>
-            </div>
-            <div className="mt-8">
-              <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4">
-                <h2 className="text-xl">Detected Information:</h2>
+            </div> */}
+            {/* <div className="mt-8 w-full"> */}
+            {/* <div className="bg-gray-800 text-slate-100 rounded-2xl shadow-xl p-4"> */}
+            {/* <h2 className="text-xl">Detected Information:</h2>
                 <h2 className="text-xl">
                   (Please edit the data if not correct)
-                </h2>
-                {Object.entries(gptData).map(([key, value]) => (
+                </h2> */}
+            {/* {Object.entries(gptData).map(([key, value]) => (
                   <div key={key} className="flex items-center mt-2 mb-2">
                     <div className="flex-grow ml-2">
                       <label className="block text-white">
@@ -821,8 +908,8 @@ const Home: React.FC = () => {
                       </label>
                     </div>
                   </div>
-                ))}
-                {croppedGPTLogo && (
+                ))} */}
+            {/* {croppedGPTLogo && (
                   <div className="mt-8 flex flex-col items-center">
                     <h3 className="text-lg">Cropped Logo from GPT:</h3>
                     <img
@@ -831,16 +918,17 @@ const Home: React.FC = () => {
                       className="w-auto h-auto mt-2"
                     />
                   </div>
-                )}
-                <div className="mt-8 w-full max-w-xl flex justify-center">
-                  <button
+                )} */}
+            {/* <div className="mt-8 w-full max-w-xl flex justify-center"> */}
+            {/* <button
                     // onClick={handleSave}
                     className="mt-2 w-10/12 px-4 py-2 bg-white text-black rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out transform hover:scale-105">
                     Save
-                  </button>
-                </div>
-              </div>
-            </div>
+                  </button> */}
+            {/* <Button variant="outline">Save</Button> */}
+            {/* </div> */}
+            {/* </div> */}
+            {/* </div> */}
           </div>
         )}
       </main>
